@@ -1,19 +1,28 @@
 package org.go3k.highlordconf;
-import hudson.Launcher;
 import hudson.Extension;
-import hudson.util.FormValidation;
-import hudson.model.AbstractBuild;
+import hudson.Launcher;
 import hudson.model.BuildListener;
+import hudson.model.AbstractBuild;
 import hudson.model.AbstractProject;
+import hudson.tasks.BuildWrapper;
+import hudson.tasks.BuildWrapperDescriptor;
 import hudson.tasks.Builder;
-import hudson.tasks.BuildStepDescriptor;
-import net.sf.json.JSONObject;
-import org.kohsuke.stapler.DataBoundConstructor;
-import org.kohsuke.stapler.StaplerRequest;
-import org.kohsuke.stapler.QueryParameter;
+import hudson.util.FormValidation;
+import hudson.util.ListBoxModel;
+
+import java.io.File;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
 
 import javax.servlet.ServletException;
-import java.io.IOException;
+
+import net.sf.json.JSONObject;
+
+import org.kohsuke.stapler.DataBoundConstructor;
+import org.kohsuke.stapler.QueryParameter;
+import org.kohsuke.stapler.StaplerRequest;
 
 /**
  * Sample {@link Builder}.
@@ -32,35 +41,66 @@ import java.io.IOException;
  *
  * @author Kohsuke Kawaguchi
  */
-public class HelloWorldBuilder extends Builder {
-
-    private final String name;
+public class HelloWorldBuilder extends BuildWrapper {
+    private ConnectType connectType;
+    private String configFile;
+    private boolean modify;
+    private String configValue;
 
     // Fields in config.jelly must match the parameter names in the "DataBoundConstructor"
     @DataBoundConstructor
-    public HelloWorldBuilder(String name) {
-        this.name = name;
+    public HelloWorldBuilder(ConnectType connectType, String configFile, boolean modify, String configValue) {
+        this.connectType = connectType;
+        this.configFile = configFile;
+        this.modify = modify;
+        this.configValue = configValue;
+        
+//        this.configValue = "hello hello hello.";
     }
-
-    /**
-     * We'll use this from the <tt>config.jelly</tt>.
-     */
-    public String getName() {
-        return name;
+    
+    public ConnectType getConnectType() {
+        return connectType;
+    }
+    public String getConfigFile() {
+        return configFile;
+    }
+    public boolean getModify() {
+        return modify;
+    }
+    public String getConfigValue() {
+        return configValue;
+    }
+    public String getDefaultConfigValue() {
+        return "Hello. hello";
     }
 
     @Override
-    public boolean perform(AbstractBuild build, Launcher launcher, BuildListener listener) {
-        // This is where you 'build' the project.
-        // Since this is a dummy, we just say 'hello world' and call that a build.
-
-        // This also shows how you can consult the global configuration of the builder
-        if (getDescriptor().getUseFrench())
-            listener.getLogger().println("Bonjour, "+name+"!");
-        else
-            listener.getLogger().println("Hello, "+name+"!");
-        return true;
+    public Environment setUp(AbstractBuild build, Launcher launcher, final BuildListener listener) throws IOException, InterruptedException {
+    	listener.getLogger().println("setup env.");
+    	return new Environment() {
+            public @Override void buildEnvVars(Map<String,String> env) {
+                env.put("hltest", "Hellohello.");
+                String confFolder = getDescriptor().getConfigsFolder();
+                listener.getLogger().println("All Vars: " + confFolder + " connectType: " + connectType 
+                		+ " configFile: " + configFile
+                		+ " modify: " + modify
+                		+ " configValue: " + configValue);
+            }
+        };
     }
+//    @Override
+//    public boolean perform(AbstractBuild build, Launcher launcher, BuildListener listener) {
+//        // This is where you 'build' the project.
+//        // Since this is a dummy, we just say 'hello world' and call that a build.
+//
+//        // This also shows how you can consult the global configuration of the builder
+//        if (getDescriptor().getUseFrench())
+//            listener.getLogger().println("Bonjour, "+name+"!");
+//        else
+//            listener.getLogger().println("Hello, "+name+"!");
+//        
+//        return true;
+//    }
 
     // Overridden for better type safety.
     // If your plugin doesn't really define any property on Descriptor,
@@ -79,62 +119,70 @@ public class HelloWorldBuilder extends Builder {
      * for the actual HTML fragment for the configuration screen.
      */
     @Extension // This indicates to Jenkins that this is an implementation of an extension point.
-    public static final class DescriptorImpl extends BuildStepDescriptor<Builder> {
-        /**
-         * To persist global configuration information,
-         * simply store it in a field and call save().
-         *
-         * <p>
-         * If you don't want fields to be persisted, use <tt>transient</tt>.
-         */
-        private boolean useFrench;
-
-        /**
-         * In order to load the persisted global configuration, you have to 
-         * call load() in the constructor.
-         */
+    public static final class DescriptorImpl extends BuildWrapperDescriptor {
+    	
+    	public boolean isApplicable(AbstractProject item) {
+            return true;
+        }
+    	
+        private String configsFolder;
+        private List<String> allConfigFiles = null;
+        
         public DescriptorImpl() {
             load();
         }
-
-        /**
-         * Performs on-the-fly validation of the form field 'name'.
-         *
-         * @param value
-         *      This parameter receives the value that the user has typed.
-         * @return
-         *      Indicates the outcome of the validation. This is sent to the browser.
-         *      <p>
-         *      Note that returning {@link FormValidation#error(String)} does not
-         *      prevent the form from being saved. It just means that a message
-         *      will be displayed to the user. 
-         */
-        public FormValidation doCheckName(@QueryParameter String value)
-                throws IOException, ServletException {
-            if (value.length() == 0)
-                return FormValidation.error("Please set a name");
-            if (value.length() < 4)
-                return FormValidation.warning("Isn't the name too short?");
-            return FormValidation.ok();
+        
+        private List<String> GetAllConfigFiles()
+        {
+        	if (allConfigFiles == null)
+        	{
+        		allConfigFiles = new ArrayList<String>();
+            	File dir = new File(configsFolder);
+                File file[] = dir.listFiles();
+                for (int i = 0; i < file.length; i++) {
+                	if (!file[i].isFile()) continue;
+                	
+                	String name = file[i].getName();
+                	if (name.startsWith(".")) continue;
+                	allConfigFiles.add(name);
+                }
+        	}
+        	
+        	return allConfigFiles;
         }
 
-        public boolean isApplicable(Class<? extends AbstractProject> aClass) {
-            // Indicates that this builder can be used with all kinds of project types 
-            return true;
+        public ListBoxModel doFillConfigFileItems() {
+            ListBoxModel items = new ListBoxModel();
+            for (String file : GetAllConfigFiles()) {
+                items.add(file, file);
+            }
+            return items;
         }
+        
+//        public FormValidation doCheckConfigFile(@QueryParameter String file)
+//                throws IOException, ServletException {
+//        	List<String> list = GetAllConfigFiles();
+//        	
+//            return FormValidation.ok();
+//        }
+
+//        public boolean isApplicable(Class<? extends AbstractProject> aClass) {
+//            // Indicates that this builder can be used with all kinds of project types 
+//            return true;
+//        }
 
         /**
          * This human readable name is used in the configuration screen.
          */
         public String getDisplayName() {
-            return "Say hello world";
+            return "项目配置选项";
         }
 
         @Override
         public boolean configure(StaplerRequest req, JSONObject formData) throws FormException {
             // To persist global configuration information,
             // set that to properties and call save().
-            useFrench = formData.getBoolean("useFrench");
+        	configsFolder = formData.getString("configsFolder");
             // ^Can also use req.bindJSON(this, formData);
             //  (easier when there are many fields; need set* methods for this, like setUseFrench)
             save();
@@ -147,8 +195,8 @@ public class HelloWorldBuilder extends Builder {
          * The method name is bit awkward because global.jelly calls this method to determine
          * the initial state of the checkbox by the naming convention.
          */
-        public boolean getUseFrench() {
-            return useFrench;
+        public String getConfigsFolder() {
+            return configsFolder;
         }
     }
 }

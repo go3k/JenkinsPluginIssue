@@ -41,29 +41,28 @@ import org.kohsuke.stapler.StaplerRequest;
  */
 public class HelloWorldBuilder extends BuildWrapper {
     private ConnectType connectType;
+    private String configType;
     private String configFile;
-    private boolean modify;
     private String configValue;
 
     // Fields in config.jelly must match the parameter names in the "DataBoundConstructor"
     @DataBoundConstructor
-    public HelloWorldBuilder(ConnectType connectType, String configFile, boolean modify, String configValue) {
+    public HelloWorldBuilder(ConnectType connectType, String configType, String configFile, String configValue) {
         this.connectType = connectType;
+        this.configType = configType;
         this.configFile = configFile;
-        this.modify = modify;
         this.configValue = configValue;
         
-//        this.configValue = "hello hello hello.";
     }
     
     public ConnectType getConnectType() {
         return connectType;
     }
+    public String getConfigType() {
+        return configType;
+    }
     public String getConfigFile() {
         return configFile;
-    }
-    public boolean getModify() {
-        return modify;
     }
     public String getConfigValue() {
         return configValue;
@@ -103,41 +102,17 @@ public class HelloWorldBuilder extends BuildWrapper {
                 String confFolder = getDescriptor().getConfigsFolder();
                 listener.getLogger().println("All Vars: " + confFolder + " connectType: " + connectType 
                 		+ " configFile: " + configFile
-                		+ " modify: " + modify
+                		+ " configType: " + configType
                 		+ " configValue: " + configValue);
             }
         };
     }
-//    @Override
-//    public boolean perform(AbstractBuild build, Launcher launcher, BuildListener listener) {
-//        // This is where you 'build' the project.
-//        // Since this is a dummy, we just say 'hello world' and call that a build.
-//
-//        // This also shows how you can consult the global configuration of the builder
-//        if (getDescriptor().getUseFrench())
-//            listener.getLogger().println("Bonjour, "+name+"!");
-//        else
-//            listener.getLogger().println("Hello, "+name+"!");
-//        
-//        return true;
-//    }
-
-    // Overridden for better type safety.
-    // If your plugin doesn't really define any property on Descriptor,
-    // you don't have to do this.
+    
     @Override
     public DescriptorImpl getDescriptor() {
         return (DescriptorImpl)super.getDescriptor();
     }
 
-    /**
-     * Descriptor for {@link HelloWorldBuilder}. Used as a singleton.
-     * The class is marked as public so that it can be accessed from views.
-     *
-     * <p>
-     * See <tt>src/main/resources/hudson/plugins/hello_world/HelloWorldBuilder/*.jelly</tt>
-     * for the actual HTML fragment for the configuration screen.
-     */
     @Extension // This indicates to Jenkins that this is an implementation of an extension point.
     public static final class DescriptorImpl extends BuildWrapperDescriptor {
     	
@@ -178,18 +153,6 @@ public class HelloWorldBuilder extends BuildWrapper {
             }
             return items;
         }
-        
-//        public FormValidation doCheckConfigFile(@QueryParameter String file)
-//                throws IOException, ServletException {
-//        	List<String> list = GetAllConfigFiles();
-//        	
-//            return FormValidation.ok();
-//        }
-
-//        public boolean isApplicable(Class<? extends AbstractProject> aClass) {
-//            // Indicates that this builder can be used with all kinds of project types 
-//            return true;
-//        }
 
         /**
          * This human readable name is used in the configuration screen.
@@ -208,13 +171,7 @@ public class HelloWorldBuilder extends BuildWrapper {
             save();
             return super.configure(req,formData);
         }
-
-        /**
-         * This method returns true if the global configuration says we should speak French.
-         *
-         * The method name is bit awkward because global.jelly calls this method to determine
-         * the initial state of the checkbox by the naming convention.
-         */
+        
         public String getConfigsFolder() {
             return configsFolder;
         }

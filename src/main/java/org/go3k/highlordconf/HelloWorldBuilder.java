@@ -7,21 +7,19 @@ import hudson.model.AbstractProject;
 import hudson.tasks.BuildWrapper;
 import hudson.tasks.BuildWrapperDescriptor;
 import hudson.tasks.Builder;
-import hudson.util.FormValidation;
 import hudson.util.ListBoxModel;
 
+import java.io.BufferedReader;
 import java.io.File;
+import java.io.FileReader;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
-import javax.servlet.ServletException;
-
 import net.sf.json.JSONObject;
 
 import org.kohsuke.stapler.DataBoundConstructor;
-import org.kohsuke.stapler.QueryParameter;
 import org.kohsuke.stapler.StaplerRequest;
 
 /**
@@ -71,7 +69,29 @@ public class HelloWorldBuilder extends BuildWrapper {
         return configValue;
     }
     public String getDefaultConfigValue() {
+    	String confFolder = getDescriptor().getConfigsFolder();
+    	String filename = confFolder + (confFolder.endsWith("/") ? "" : "/") + configFile;
+    	if (filename.length() > 0)
+    	{
+    		File file = new File(filename);
+    		return Read2String(file);
+    	}
         return "Hello. hello";
+    }
+    
+    public static String Read2String(File file){
+        String result = "";
+        try{
+            BufferedReader br = new BufferedReader(new FileReader(file));//构造一个BufferedReader类来读取文件
+            String s = null;
+            while((s = br.readLine())!=null){//使用readLine方法，一次读一行
+                result = result + "\n" +s;
+            }
+            br.close();    
+        }catch(Exception e){
+            e.printStackTrace();
+        }
+        return result;
     }
 
     @Override

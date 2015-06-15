@@ -1,22 +1,25 @@
 package org.go3k.highlordconf;
+import hudson.DescriptorExtensionList;
 import hudson.Extension;
+import hudson.ExtensionPoint;
 import hudson.Launcher;
 import hudson.model.BuildListener;
+import hudson.model.Describable;
 import hudson.model.AbstractBuild;
 import hudson.model.AbstractProject;
+import hudson.model.Descriptor;
 import hudson.tasks.BuildWrapper;
 import hudson.tasks.BuildWrapperDescriptor;
 import hudson.tasks.Builder;
 import hudson.util.ListBoxModel;
 
-import java.io.BufferedReader;
 import java.io.File;
-import java.io.FileReader;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
+import jenkins.model.Jenkins;
 import net.sf.json.JSONObject;
 
 import org.kohsuke.stapler.DataBoundConstructor;
@@ -41,56 +44,40 @@ import org.kohsuke.stapler.StaplerRequest;
  */
 public class HelloWorldBuilder extends BuildWrapper {
     private ConnectType connectType;
-    private String configType;
-    private String configFile;
-    private String configValue;
+    private ConfigType fruit;
+//    private String configType;
+//    private String configFile;
+//    private String configValue;
 
     // Fields in config.jelly must match the parameter names in the "DataBoundConstructor"
     @DataBoundConstructor
-    public HelloWorldBuilder(ConnectType connectType, String configType, String configFile, String configValue) {
+    public HelloWorldBuilder(ConnectType connectType, ConfigType fruit) {
         this.connectType = connectType;
-        this.configType = configType;
-        this.configFile = configFile;
-        this.configValue = configValue;
+        this.fruit = fruit;
+//        this.configType = configType;
+//        this.configFile = configFile;
+//        this.configValue = configValue;
         
+        Helper.Instance().setMainBuilder(this);
     }
     
     public ConnectType getConnectType() {
         return connectType;
     }
-    public String getConfigType() {
-        return configType;
+//    public String getConfigType() {
+//        return configType;
+//    }
+//    public String getConfigFile() {
+//        return configFile;
+//    }
+//    public String getConfigValue() {
+//        return configValue;
+//    }
+    public DescriptorExtensionList<ConfigType,Descriptor<ConfigType>> getConfigTypeDescriptors() {
+        return Jenkins.getInstance().<ConfigType,Descriptor<ConfigType>>getDescriptorList(ConfigType.class);
     }
-    public String getConfigFile() {
-        return configFile;
-    }
-    public String getConfigValue() {
-        return configValue;
-    }
-    public String getDefaultConfigValue() {
-    	String confFolder = getDescriptor().getConfigsFolder();
-    	String filename = confFolder + (confFolder.endsWith("/") ? "" : "/") + configFile;
-    	if (filename.length() > 0)
-    	{
-    		File file = new File(filename);
-    		return Read2String(file);
-    	}
-        return "Hello. hello";
-    }
-    
-    public static String Read2String(File file){
-        String result = "";
-        try{
-            BufferedReader br = new BufferedReader(new FileReader(file));//构造一个BufferedReader类来读取文件
-            String s = null;
-            while((s = br.readLine())!=null){//使用readLine方法，一次读一行
-                result = result + "\n" +s;
-            }
-            br.close();    
-        }catch(Exception e){
-            e.printStackTrace();
-        }
-        return result;
+    public ConfigType getFruit() {
+    	return fruit;
     }
 
     @Override
@@ -101,9 +88,10 @@ public class HelloWorldBuilder extends BuildWrapper {
                 env.put("hltest", "Hellohello.");
                 String confFolder = getDescriptor().getConfigsFolder();
                 listener.getLogger().println("All Vars: " + confFolder + " connectType: " + connectType 
-                		+ " configFile: " + configFile
-                		+ " configType: " + configType
-                		+ " configValue: " + configValue);
+//                		+ " configFile: " + configFile
+//                		+ " configType: " + configType
+//                		+ " configValue: " + configValue
+                		);
             }
         };
     }
@@ -121,42 +109,12 @@ public class HelloWorldBuilder extends BuildWrapper {
         }
     	
         private String configsFolder;
-        private List<String> allConfigFiles = null;
+//        private List<String> allConfigFiles = null;
         
         public DescriptorImpl() {
             load();
         }
         
-        private List<String> GetAllConfigFiles()
-        {
-        	if (allConfigFiles == null)
-        	{
-        		allConfigFiles = new ArrayList<String>();
-            	File dir = new File(configsFolder);
-                File file[] = dir.listFiles();
-                for (int i = 0; i < file.length; i++) {
-                	if (!file[i].isFile()) continue;
-                	
-                	String name = file[i].getName();
-                	if (name.startsWith(".")) continue;
-                	allConfigFiles.add(name);
-                }
-        	}
-        	
-        	return allConfigFiles;
-        }
-
-        public ListBoxModel doFillConfigFileItems() {
-            ListBoxModel items = new ListBoxModel();
-            for (String file : GetAllConfigFiles()) {
-                items.add(file, file);
-            }
-            return items;
-        }
-
-        /**
-         * This human readable name is used in the configuration screen.
-         */
         public String getDisplayName() {
             return "项目配置选项";
         }
@@ -176,5 +134,116 @@ public class HelloWorldBuilder extends BuildWrapper {
             return configsFolder;
         }
     }
+    
+    //Inner classes
+    public static abstract class ConfigType implements ExtensionPoint, Describable<ConfigType> {
+        protected String name;
+        protected ConfigType(String name) { this.name = name; }
+
+        public ConfigTypeDescriptor getDescriptor() {
+            return (ConfigTypeDescriptor)Jenkins.getInstance().getDescriptor(getClass());
+        }
+    }
+
+    public static class ConfigTypeDescriptor extends Descriptor<ConfigType> {
+        public ConfigTypeDescriptor(Class<? extends ConfigType> clazz) {
+            super(clazz);
+        }
+        public String getDisplayName() {
+            return clazz.getSimpleName();
+        }
+        
+        @Override
+        public boolean configure(StaplerRequest req, JSONObject formData) throws FormException {
+            save();
+            return super.configure(req,formData);
+        }
+    }
+
+    public static class FileConfigType extends ConfigType {
+        private String configFile;
+        
+        @DataBoundConstructor 
+        public FileConfigType(String configFile) {
+            super("选择配置文件");
+            this.configFile = configFile;
+        }
+        
+        public String getConfigFile() {
+            return configFile;
+        }
+        public String getDefaultConfigValue() {
+        	String confFolder = Helper.Instance().getMainBuilder().getDescriptor().getConfigsFolder();
+        	String filename = confFolder + (confFolder.endsWith("/") ? "" : "/") + configFile;
+        	if (filename.length() > 0)
+        	{
+//        		return filename;
+        		File file = new File(filename);
+        		return Helper.Read2String(file);
+        	}
+            return "Hello. hello";
+        }
+        
+        
+//        @Extension public static final ConfigTypeDescriptor D = new ConfigTypeDescriptor(FileConfigType.class);
+        
+        public FileConfigTypeDescriptor getDescriptor() {
+            return (FileConfigTypeDescriptor)super.getDescriptor();
+        }
+        @Extension
+        public static final class FileConfigTypeDescriptor extends ConfigTypeDescriptor {
+        	private List<String> allConfigFiles = null;
+        	
+        	public FileConfigTypeDescriptor() {
+        		super(FileConfigType.class);
+            }
+            
+            private List<String> GetAllConfigFiles()
+            {
+            	if (allConfigFiles == null)
+            	{
+            		String configsFolder = Helper.Instance().getMainBuilder().getDescriptor().getConfigsFolder();
+            		
+            		allConfigFiles = new ArrayList<String>();
+                	File dir = new File(configsFolder);
+                    File file[] = dir.listFiles();
+                    for (int i = 0; i < file.length; i++) {
+                    	if (!file[i].isFile()) continue;
+                    	
+                    	String name = file[i].getName();
+                    	if (name.startsWith(".")) continue;
+                    	allConfigFiles.add(name);
+                    }
+            	}
+            	
+            	return allConfigFiles;
+            }
+
+            public ListBoxModel doFillConfigFileItems() {
+                ListBoxModel items = new ListBoxModel();
+                for (String file : GetAllConfigFiles()) {
+                    items.add(file, file);
+                }
+                return items;
+            }
+            
+            @Override
+            public boolean configure(StaplerRequest req, JSONObject formData) throws FormException {
+                save();
+                return super.configure(req,formData);
+            }
+        }
+    }
+
+    public static class CustomConfigType extends ConfigType {
+        private String custom;
+        @DataBoundConstructor 
+        public CustomConfigType(String custom) {
+            super("CustomConfigType");
+            this.custom = custom;
+        }
+        @Extension public static final ConfigTypeDescriptor D = new ConfigTypeDescriptor(CustomConfigType.class);
+    }
+    
 }
 

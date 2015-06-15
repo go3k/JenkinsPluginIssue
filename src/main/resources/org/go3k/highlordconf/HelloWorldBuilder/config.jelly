@@ -17,20 +17,19 @@
       </select>
   </f:entry>
 
-  <f:dropdownList name="configType" title="配置方式">
-    <f:dropdownListBlock title="选择配置文件" value="1" selected="true">
-        <f:entry field="configFile" title="配置文件">
-          <f:select />
-        </f:entry>
-
-        <f:entry title="配置文件内容">
-            <f:textarea value="${instance.defaultConfigValue}"/>
-        </f:entry>
-    </f:dropdownListBlock>
-    <f:dropdownListBlock title="自定义配置" value="2" selected="false">
-        <f:entry field="configValue" title="自定义配置文件">
-            <f:textarea />
-        </f:entry>
-    </f:dropdownListBlock>
+  <j:set var="currentFruit" value="${instance.fruit}"/>
+  <!-- getJSONObject("fruit") in java code gets data for this block -->
+  <!-- A @DataBoundConstructor with parameter "Fruit fruit" can also be used -->
+  <f:dropdownList name="fruit" title="Fruits">
+    <!-- Loop through available fruit types -->
+    <j:forEach var="descriptor" items="${instance.configTypeDescriptors}" varStatus="loop">
+      <!-- Set "fruit" only if it matches this descriptor -->
+      <j:set var="fruit" value="${descriptor==currentFruit.descriptor?currentFruit:null}"/>
+      <f:dropdownListBlock title="${descriptor.displayName}" value="${loop.index}"
+                           selected="${fruit!=null}" staplerClass="${descriptor.clazz.name}">
+        <!-- Include config.jelly for this fruit type -->
+        <st:include page="${descriptor.configPage}" from="${descriptor}"/>
+      </f:dropdownListBlock>
+    </j:forEach>
   </f:dropdownList>
  </j:jelly>
